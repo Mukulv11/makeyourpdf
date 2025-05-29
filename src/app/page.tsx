@@ -1,220 +1,1119 @@
-import React from 'react'
-import Link from 'next/link'
-import { FileText, Zap, Shield, Users, ArrowRight, CheckCircle } from 'lucide-react'
+'use client'
 
-export default function HomePage() {
+import React, { useState } from 'react'
+import { FileText, Download, Eye, Code, Palette, Settings, Zap, Shield, Users, Sparkles, ArrowRight, Play, Upload, Image } from 'lucide-react'
+import jsPDF from 'jspdf'
+import html2canvas from 'html2canvas'
+import './generator.css'
+
+export default function MakeYourPDF() {
+  const [activeTab, setActiveTab] = useState('generator')
+  const [htmlTemplate, setHtmlTemplate] = useState(`<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>\${title}</title>
+    <style>
+        body { 
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; 
+            margin: 40px; 
+            color: #2A2E3A; 
+            line-height: 1.6;
+        }
+        .header { 
+            text-align: center; 
+            border-bottom: 3px solid #87C6F7; 
+            padding-bottom: 25px; 
+            margin-bottom: 40px; 
+            border-radius: 8px 8px 0 0;
+        }
+        .logo { 
+            font-size: 28px; 
+            font-weight: 800; 
+            color: #87C6F7; 
+            margin-bottom: 15px; 
+            letter-spacing: -0.5px;
+        }
+        .invoice-title { 
+            font-size: 36px; 
+            color: #2A2E3A; 
+            margin: 0; 
+            font-weight: 700;
+        }
+        .invoice-details { 
+            display: flex; 
+            justify-content: space-between; 
+            margin: 40px 0; 
+            gap: 30px;
+        }
+        .company-info, .client-info { 
+            flex: 1; 
+            padding: 20px; 
+            background: #F8F9FA; 
+            border-radius: 12px;
+        }
+        .company-info h3, .client-info h3 { 
+            color: #87C6F7; 
+            margin-bottom: 15px; 
+            font-weight: 600;
+        }
+        .company-logo {
+            width: 100px;
+            height: auto;
+            margin-bottom: 15px;
+        }
+        .items-table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            margin: 40px 0; 
+            border-radius: 12px; 
+            overflow: hidden; 
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+        .items-table th, .items-table td { 
+            border: 1px solid #E5E7EB; 
+            padding: 16px; 
+            text-align: left; 
+        }
+        .items-table th { 
+            background: linear-gradient(135deg, #87C6F7 0%, #6BB6FF 100%); 
+            color: white; 
+            font-weight: 600; 
+        }
+        .items-table tr:nth-child(even) { 
+            background-color: #F8F9FA; 
+        }
+        .total-section { 
+            text-align: right; 
+            margin-top: 40px; 
+            padding: 25px; 
+            background: #F8F9FA; 
+            border-radius: 12px;
+        }
+        .total-amount { 
+            font-size: 28px; 
+            font-weight: 800; 
+            color: #87C6F7; 
+            margin-top: 10px;
+        }
+        .footer { 
+            margin-top: 60px; 
+            text-align: center; 
+            color: #9CA3AF; 
+            border-top: 2px solid #E5E7EB; 
+            padding-top: 30px; 
+            font-style: italic;
+        }
+        .footer .brand { 
+            color: #87C6F7; 
+            font-weight: 600; 
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <img src="\${logo}" alt="Company Logo" class="company-logo" style="display: \${logo ? 'block' : 'none'};">
+        <div class="logo">\${company.name}</div>
+        <h1 class="invoice-title">\${title}</h1>
+    </div>
+    
+    <div class="invoice-details">
+        <div class="company-info">
+            <h3>From:</h3>
+            <p><strong>\${company.name}</strong><br>
+            \${company.address}<br>
+            \${company.city}, \${company.state} \${company.zip}<br>
+            Email: \${company.email}</p>
+        </div>
+        <div class="client-info">
+            <h3>To:</h3>
+            <p><strong>\${client.name}</strong><br>
+            \${client.address}<br>
+            \${client.city}, \${client.state} \${client.zip}<br>
+            Email: \${client.email}</p>
+        </div>
+    </div>
+    
+    <table class="items-table">
+        <thead>
+            <tr>
+                <th>Description</th>
+                <th>Quantity</th>
+                <th>Rate</th>
+                <th>Amount</th>
+            </tr>
+        </thead>
+        <tbody>
+            \${#items}
+            <tr>
+                <td>\${description}</td>
+                <td>\${quantity}</td>
+                <td>$\${rate}</td>
+                <td>$\${amount}</td>
+            </tr>
+            \${/items}
+        </tbody>
+    </table>
+    
+    <div class="total-section">
+        <p><strong>Subtotal: $\${subtotal}</strong></p>
+        <p><strong>Tax (\${tax_rate}%): $\${tax_amount}</strong></p>
+        <p class="total-amount">Total: $\${total}</p>
+    </div>
+    
+    <div class="footer">
+        <p>Thank you for your business! 💙</p>
+        <p>Invoice generated by <span class="brand">MakeYourPDF</span></p>
+    </div>
+</body>
+</html>`)
+
+  const [jsonData, setJsonData] = useState(`{
+  "title": "INVOICE #INV-001",
+  "company": {
+    "name": "MakeYourPDF Inc.",
+    "address": "123 Business Street",
+    "city": "San Francisco",
+    "state": "CA",
+    "zip": "94105",
+    "email": "hello@makeyourpdf.com"
+  },
+  "client": {
+    "name": "Acme Corporation",
+    "address": "456 Client Avenue",
+    "city": "New York",
+    "state": "NY",
+    "zip": "10001",
+    "email": "billing@acme.com"
+  },
+  "items": [
+    {
+      "description": "PDF Generation Service",
+      "quantity": 100,
+      "rate": 0.50,
+      "amount": 50.00
+    },
+    {
+      "description": "Template Design",
+      "quantity": 1,
+      "rate": 150.00,
+      "amount": 150.00
+    },
+    {
+      "description": "API Integration Support",
+      "quantity": 2,
+      "rate": 75.00,
+      "amount": 150.00
+    }
+  ],
+  "subtotal": 350.00,
+  "tax_rate": 8.5,
+  "tax_amount": 29.75,
+  "total": 379.75
+}`)
+
+  const [previewHtml, setPreviewHtml] = useState('')
+  const [isGenerating, setIsGenerating] = useState(false)
+  const [selectedImage, setSelectedImage] = useState<File | null>(null)
+  const [imageUrl, setImageUrl] = useState('')
+  const [imagePreview, setImagePreview] = useState('')
+  const [apiUrl, setApiUrl] = useState('')
+  const [isLoadingJson, setIsLoadingJson] = useState(false)
+  const [selectedImages, setSelectedImages] = useState<File[]>([])
+  const [imageUrls, setImageUrls] = useState<string[]>([''])
+  const [imagePreviews, setImagePreviews] = useState<string[]>([])
+
+  // Handle multiple image file selection
+  const handleMultipleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || [])
+    const validFiles: File[] = []
+    const validPreviews: string[] = []
+
+    files.forEach(file => {
+      // Validate file type
+      const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp']
+      if (!validTypes.includes(file.type)) {
+        alert(`Invalid file type for ${file.name}. Please select JPEG, PNG, GIF, or WebP files.`)
+        return
+      }
+
+      // Validate file size (max 5MB)
+      const maxSize = 5 * 1024 * 1024 // 5MB in bytes
+      if (file.size > maxSize) {
+        alert(`File ${file.name} is too large. Maximum size is 5MB.`)
+        return
+      }
+
+      validFiles.push(file)
+      
+      // Create preview
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        validPreviews.push(e.target?.result as string)
+        if (validPreviews.length === validFiles.length) {
+          setImagePreviews(prev => [...prev, ...validPreviews])
+        }
+      }
+      reader.readAsDataURL(file)
+    })
+
+    setSelectedImages(prev => [...prev, ...validFiles])
+  }
+
+  // Handle single image file selection (backward compatibility)
+  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (file) {
+      // Validate file type
+      const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp']
+      if (!validTypes.includes(file.type)) {
+        alert('Please select a valid image file (JPEG, PNG, GIF, or WebP)')
+        return
+      }
+
+      // Validate file size (max 5MB)
+      const maxSize = 5 * 1024 * 1024 // 5MB in bytes
+      if (file.size > maxSize) {
+        alert('Image file size must be less than 5MB')
+        return
+      }
+
+      setSelectedImage(file)
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        setImagePreview(e.target?.result as string)
+      }
+      reader.onerror = () => {
+        alert('Error reading image file')
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+
+  // Add new image URL input
+  const addImageUrl = () => {
+    setImageUrls(prev => [...prev, ''])
+  }
+
+  // Update image URL
+  const updateImageUrl = (index: number, url: string) => {
+    setImageUrls(prev => prev.map((item, i) => i === index ? url : item))
+  }
+
+  // Remove image URL
+  const removeImageUrl = (index: number) => {
+    setImageUrls(prev => prev.filter((_, i) => i !== index))
+  }
+
+  // Fetch JSON from API
+  const fetchJsonFromApi = async () => {
+    if (!apiUrl) {
+      alert('Please enter an API URL')
+      return
+    }
+
+    setIsLoadingJson(true)
+    try {
+      const response = await fetch(apiUrl)
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+      }
+      const data = await response.json()
+      setJsonData(JSON.stringify(data, null, 2))
+      alert('JSON data loaded successfully!')
+    } catch (error) {
+      console.error('Error fetching JSON:', error)
+      alert(`Error fetching JSON: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    } finally {
+      setIsLoadingJson(false)
+    }
+  }
+
+  // Template processing function
+  const processTemplate = (template: string, data: any, imageSource?: string): string => {
+    let processed = template
+
+    // Handle images first
+    const allImages: string[] = []
+    
+    // Add single image for backward compatibility
+    if (imageSource) {
+      allImages.push(imageSource)
+    }
+    
+    // Add previews from uploaded files
+    imagePreviews.forEach(preview => {
+      if (preview) allImages.push(preview)
+    })
+    
+    // Add URLs
+    imageUrls.forEach(url => {
+      if (url.trim()) allImages.push(url.trim())
+    })
+
+    // Add images to data object
+    if (allImages.length > 0) {
+      data.image = allImages[0]
+      data.logo = allImages[0]
+      data.photo = allImages[0]
+      
+      // Add numbered images
+      allImages.forEach((img, index) => {
+        data[`image${index + 1}`] = img
+      })
+    }
+
+    // Handle array loops first: ${#items}...${/items}
+    processed = processed.replace(/\$\{#(\w+)\}([\s\S]*?)\$\{\/\1\}/g, (match, arrayName, content) => {
+      const array = data[arrayName]
+      if (!Array.isArray(array)) return ''
+
+      return array.map(item => {
+        let itemContent = content
+        // Replace variables within the loop
+        itemContent = itemContent.replace(/\$\{([^#\/\}]+)\}/g, (innerMatch, variable) => {
+          const keys = variable.trim().split('.')
+          let value = item
+          
+          for (const key of keys) {
+            if (value && typeof value === 'object' && key in value) {
+              value = value[key]
+            } else {
+              return ''
+            }
+          }
+          
+          return value !== undefined ? String(value) : ''
+        })
+        return itemContent
+      }).join('')
+    })
+
+    // Handle escaped array loops: \${#items}...\${/items}
+    processed = processed.replace(/\\\$\{#(\w+)\}([\s\S]*?)\\\$\{\/\1\}/g, (match, arrayName, content) => {
+      const array = data[arrayName]
+      if (!Array.isArray(array)) return ''
+
+      return array.map(item => {
+        let itemContent = content
+        // Replace variables within the loop
+        itemContent = itemContent.replace(/\\\$\{([^#\/\}]+)\}/g, (innerMatch, variable) => {
+          const keys = variable.trim().split('.')
+          let value = item
+          
+          for (const key of keys) {
+            if (value && typeof value === 'object' && key in value) {
+              value = value[key]
+            } else {
+              return ''
+            }
+          }
+          
+          return value !== undefined ? String(value) : ''
+        })
+        return itemContent
+      }).join('')
+    })
+
+    // Handle simple variables: ${variable}
+    processed = processed.replace(/\$\{([^#\/\}]+)\}/g, (match, variable) => {
+      const keys = variable.trim().split('.')
+      let value = data
+      
+      for (const key of keys) {
+        if (value && typeof value === 'object' && key in value) {
+          value = value[key]
+        } else {
+          return ''
+        }
+      }
+      
+      return value !== undefined ? String(value) : ''
+    })
+
+    // Handle escaped variables: \${variable}
+    processed = processed.replace(/\\\$\{([^#\/\}]+)\}/g, (match, variable) => {
+      const keys = variable.trim().split('.')
+      let value = data
+      
+      for (const key of keys) {
+        if (value && typeof value === 'object' && key in value) {
+          value = value[key]
+        } else {
+          return ''
+        }
+      }
+      
+      return value !== undefined ? String(value) : ''
+    })
+
+    return processed
+  }
+
+  const generatePreview = () => {
+    try {
+      const data = JSON.parse(jsonData)
+      
+      // Collect all images
+      const allImages: string[] = []
+      
+      // Add single image for backward compatibility
+      const singleImageSource = imagePreview || imageUrl
+      if (singleImageSource) {
+        allImages.push(singleImageSource)
+      }
+      
+      // Add previews from uploaded files
+      imagePreviews.forEach(preview => {
+        if (preview) allImages.push(preview)
+      })
+      
+      // Add URLs
+      imageUrls.forEach(url => {
+        if (url.trim()) allImages.push(url.trim())
+      })
+      
+      const processed = processTemplate(htmlTemplate, data, allImages.length > 0 ? allImages[0] : undefined)
+      setPreviewHtml(processed)
+    } catch (error) {
+      alert('Invalid JSON data. Please check your JSON format.')
+    }
+  }
+
+  const generatePDF = async () => {
+    setIsGenerating(true)
+    try {
+      // Validate JSON first
+      let data
+      try {
+        data = JSON.parse(jsonData)
+      } catch (error) {
+        alert('Invalid JSON data. Please check your JSON format.')
+        setIsGenerating(false)
+        return
+      }
+      
+      // Create form data for API request
+      const formData = new FormData()
+      formData.append('template', htmlTemplate)
+      formData.append('data', jsonData)
+      
+      // Add single image for backward compatibility
+      if (selectedImage) {
+        formData.append('image', selectedImage)
+      } else if (imageUrl) {
+        formData.append('imageUrl', imageUrl)
+      }
+
+      // Add multiple images
+      selectedImages.forEach((image, index) => {
+        formData.append(`image${index + 1}`, image)
+      })
+
+      // Add multiple image URLs
+      imageUrls.forEach((url, index) => {
+        if (url.trim()) {
+          formData.append(`imageUrl${index + 1}`, url.trim())
+        }
+      })
+
+      // Call the correct API endpoint
+      const response = await fetch('/api/generate', {
+        method: 'POST',
+        body: formData
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to generate PDF')
+      }
+
+      // Download the PDF
+      const blob = await response.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'makeyourpdf-document.pdf'
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+
+    } catch (error) {
+      console.error('Error generating PDF:', error)
+      alert(`Error generating PDF: ${error instanceof Error ? error.message : 'Please try again.'}`)
+    } finally {
+      setIsGenerating(false)
+    }
+  }
+
+  // Fallback to client-side generation if API fails
+  const generatePDFClientSide = async () => {
+    setIsGenerating(true)
+    try {
+      const data = JSON.parse(jsonData)
+      
+      // Collect all images
+      const allImages: string[] = []
+      
+      // Add single image for backward compatibility
+      const singleImageSource = imagePreview || imageUrl
+      if (singleImageSource) {
+        allImages.push(singleImageSource)
+      }
+      
+      // Add previews from uploaded files
+      imagePreviews.forEach(preview => {
+        if (preview) allImages.push(preview)
+      })
+      
+      // Add URLs
+      imageUrls.forEach(url => {
+        if (url.trim()) allImages.push(url.trim())
+      })
+      
+      const processed = processTemplate(htmlTemplate, data, allImages.length > 0 ? allImages[0] : undefined)
+      
+      // Create a temporary div to render the HTML
+      const tempDiv = document.createElement('div')
+      tempDiv.innerHTML = processed
+      tempDiv.style.position = 'absolute'
+      tempDiv.style.left = '-9999px'
+      tempDiv.style.width = '210mm' // A4 width
+      tempDiv.style.padding = '20mm'
+      tempDiv.style.backgroundColor = 'white'
+      document.body.appendChild(tempDiv)
+
+      // Convert to canvas
+      const canvas = await html2canvas(tempDiv, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#ffffff'
+      })
+
+      // Create PDF
+      const pdf = new jsPDF('p', 'mm', 'a4')
+      const imgData = canvas.toDataURL('image/png')
+      const imgWidth = 210 // A4 width in mm
+      const pageHeight = 295 // A4 height in mm
+      const imgHeight = (canvas.height * imgWidth) / canvas.width
+      let heightLeft = imgHeight
+
+      let position = 0
+
+      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight)
+      heightLeft -= pageHeight
+
+      while (heightLeft >= 0) {
+        position = heightLeft - imgHeight
+        pdf.addPage()
+        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight)
+        heightLeft -= pageHeight
+      }
+
+      // Clean up
+      document.body.removeChild(tempDiv)
+
+      // Download PDF
+      pdf.save('makeyourpdf-document.pdf')
+    } catch (error) {
+      alert('Error generating PDF. Please check your template and data.')
+      console.error(error)
+    } finally {
+      setIsGenerating(false)
+    }
+  }
+
+  const templates = [
+    {
+      name: 'Professional Invoice',
+      description: 'Clean invoice template with company branding',
+      category: 'Business',
+      color: 'from-blue-400 to-blue-600'
+    },
+    {
+      name: 'Business Letter',
+      description: 'Formal business correspondence template',
+      category: 'Business',
+      color: 'from-purple-400 to-purple-600'
+    },
+    {
+      name: 'Certificate',
+      description: 'Award certificate with elegant design',
+      category: 'Certificates',
+      color: 'from-green-400 to-green-600'
+    },
+    {
+      name: 'Report',
+      description: 'Professional report with charts and tables',
+      category: 'Reports',
+      color: 'from-orange-400 to-orange-600'
+    }
+  ]
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+    <div className="min-h-screen bg-gradient-to-br from-white via-blue-50/30 to-blue-100/50">
       {/* Header */}
-      <header className="container mx-auto px-4 py-6">
-        <nav className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <FileText className="h-8 w-8 text-blue-600" />
-            <span className="text-2xl font-bold text-gray-900">MakeYourPDF</span>
+      <header className="flex justify-between items-center px-6 py-4 border-b bg-white">
+        <div className="flex items-center gap-2">
+          <div className="logo-box">
+            <FileText className="h-7 w-7 text-white" />
           </div>
-          <div className="hidden md:flex items-center space-x-8">
-            <Link href="/features" className="text-gray-600 hover:text-gray-900">Features</Link>
-            <Link href="/templates" className="text-gray-600 hover:text-gray-900">Templates</Link>
-            <Link href="/pricing" className="text-gray-600 hover:text-gray-900">Pricing</Link>
-            <Link href="/docs" className="text-gray-600 hover:text-gray-900">API Docs</Link>
-          </div>
-          <div className="flex items-center space-x-4">
-            <Link href="/auth/login" className="text-gray-600 hover:text-gray-900">Sign In</Link>
-            <Link 
-              href="/auth/register" 
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              Get Started
-            </Link>
-          </div>
-        </nav>
+          <span className="logo-text">makeyourpdf</span>
+        </div>
+        <div className="flex gap-4 items-center">
+          <a href="/docs" className="text-gray-600 hover:underline">Docs</a>
+          <a href="/start" className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded">Try Now</a>
+        </div>
       </header>
 
       {/* Hero Section */}
-      <main className="container mx-auto px-4 py-16">
-        <div className="text-center max-w-4xl mx-auto">
-          <h1 className="text-5xl md:text-6xl font-bold text-gray-900 mb-6">
-            Generate Professional PDFs
-            <span className="text-blue-600"> Instantly</span>
-          </h1>
-          <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
-            Transform your HTML templates and data into beautiful PDFs with our powerful API. 
-            Save templates, manage users, and scale your document generation.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link 
-              href="/dashboard" 
-              className="bg-blue-600 text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-blue-700 transition-colors flex items-center justify-center"
-            >
-              Start Creating PDFs
-              <ArrowRight className="ml-2 h-5 w-5" />
-            </Link>
-            <Link 
-              href="/demo" 
-              className="border border-gray-300 text-gray-700 px-8 py-4 rounded-lg text-lg font-semibold hover:bg-gray-50 transition-colors"
-            >
-              View Demo
-            </Link>
-          </div>
-        </div>
+      <section className="text-center py-12 px-4">
+        <h2 className="text-3xl font-bold mb-4">Generate PDFs in <span className="text-blue-500">seconds</span> — your way.</h2>
+        <p className="text-lg text-gray-600 mb-8">Transform your HTML templates and JSON data into beautiful PDFs with our powerful, developer-friendly generator.</p>
+        <a href="/start" className="inline-block bg-blue-600 hover:bg-blue-700 text-white rounded-md px-6 py-3 font-semibold mt-6 transition-colors">Get Started</a>
+      </section>
 
-        {/* Features Grid */}
-        <div className="mt-24 grid md:grid-cols-3 gap-8">
-          <div className="text-center p-6">
-            <div className="bg-blue-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Zap className="h-8 w-8 text-blue-600" />
-            </div>
-            <h3 className="text-xl font-semibold mb-2">Lightning Fast</h3>
-            <p className="text-gray-600">Generate PDFs in milliseconds with our optimized rendering engine</p>
-          </div>
-          <div className="text-center p-6">
-            <div className="bg-green-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Shield className="h-8 w-8 text-green-600" />
-            </div>
-            <h3 className="text-xl font-semibold mb-2">Secure & Reliable</h3>
-            <p className="text-gray-600">Enterprise-grade security with user authentication and data protection</p>
-          </div>
-          <div className="text-center p-6">
-            <div className="bg-purple-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Users className="h-8 w-8 text-purple-600" />
-            </div>
-            <h3 className="text-xl font-semibold mb-2">Team Collaboration</h3>
-            <p className="text-gray-600">Share templates, manage users, and collaborate on document generation</p>
-          </div>
-        </div>
+      {/* Main Content */}
+      <main className="container mx-auto px-6 py-12">
+        {activeTab === 'generator' && (
+          <div className="space-y-12">
+            {/* PDF Generator Interface */}
+            <div className="grid gap-8 md:grid-cols-2 main-container">
+              {/* HTML Template Section */}
+              <div className="section-card">
+                <h3 className="section-header">HTML Template</h3>
+                <p className="section-description">Use $&#123;variables&#125; for dynamic content. Use $&#123;logo&#125;, $&#123;image1&#125;, $&#123;image2&#125; for images.</p>
+                
+                {/* Template Examples */}
+                <div className="mb-4">
+                  <button
+                    onClick={() => setHtmlTemplate(`<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>\${title}</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        .header { text-align: center; margin-bottom: 30px; }
+        .image-gallery { display: flex; gap: 20px; justify-content: center; margin: 20px 0; }
+        .image-gallery img { width: 150px; height: 150px; object-fit: cover; border-radius: 8px; }
+        .content { margin: 20px 0; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>\${title}</h1>
+        <p>Company: \${company}</p>
+    </div>
+    
+    <div class="image-gallery">
+        <img src="\${image1}" alt="Image 1" />
+        <img src="\${image2}" alt="Image 2" />
+        <img src="\${logo}" alt="Logo" />
+    </div>
+    
+    <div class="content">
+        <h2>Items:</h2>
+        <ul>
+        \${#items}
+            <li>\${name} - $\${price}</li>
+        \${/items}
+        </ul>
+        <p><strong>Total: $\${total}</strong></p>
+    </div>
+</body>
+</html>`)}
+                    className="text-sm bg-purple-500 hover:bg-purple-600 text-white px-3 py-1 rounded mr-2"
+                  >
+                    Load Multi-Image Template
+                  </button>
+                  <button
+                    onClick={() => setJsonData(`{
+  "title": "Multi-Image Test Document",
+  "company": "Test Company Inc.",
+  "items": [
+    {"name": "Product A", "price": 29.99},
+    {"name": "Product B", "price": 49.99},
+    {"name": "Product C", "price": 19.99}
+  ],
+  "total": 99.97
+}`)}
+                    className="text-sm bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded"
+                  >
+                    Load Test JSON
+                  </button>
+                </div>
 
-        {/* Code Example */}
-        <div className="mt-24 bg-gray-900 rounded-xl p-8 text-white">
-          <h2 className="text-2xl font-bold mb-6 text-center">Simple API Integration</h2>
-          <div className="bg-gray-800 rounded-lg p-6 overflow-x-auto">
-            <pre className="text-sm">
-              <code>{`// Generate PDF with MakeYourPDF API
+                <textarea
+                  value={htmlTemplate}
+                  onChange={(e) => setHtmlTemplate(e.target.value)}
+                  className="textarea"
+                  placeholder="Enter your HTML template with template variables..."
+                />
+                <button
+                  onClick={generatePreview}
+                  className="button"
+                >
+                  Generate Preview
+                </button>
+              </div>
+
+              {/* JSON Data Section */}
+              <div className="section-card">
+                <h3 className="section-header">JSON Data</h3>
+                <p className="section-description">Your dynamic content data in JSON format</p>
+                
+                {/* API URL Input */}
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Fetch JSON from API (Optional)
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="url"
+                      value={apiUrl}
+                      onChange={(e) => setApiUrl(e.target.value)}
+                      placeholder="https://api.example.com/data"
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <button
+                      onClick={fetchJsonFromApi}
+                      disabled={isLoadingJson || !apiUrl}
+                      className="px-4 py-2 bg-green-500 hover:bg-green-600 disabled:bg-gray-300 text-white rounded-md transition-colors"
+                    >
+                      {isLoadingJson ? 'Loading...' : 'Fetch'}
+                    </button>
+                  </div>
+                </div>
+
+                <textarea
+                  value={jsonData}
+                  onChange={(e) => setJsonData(e.target.value)}
+                  className="textarea"
+                  placeholder="Enter your JSON data or fetch from API above..."
+                />
+                <button
+                  onClick={generatePDF}
+                  disabled={isGenerating}
+                  className="button"
+                >
+                  {isGenerating ? 'Generating...' : 'Download PDF (API)'}
+                </button>
+                <button
+                  onClick={generatePDFClientSide}
+                  disabled={isGenerating}
+                  className="button mt-2 bg-gray-500 hover:bg-gray-600"
+                >
+                  {isGenerating ? 'Generating...' : 'Download PDF (Client)'}
+                </button>
+              </div>
+
+              {/* Image Upload Section */}
+              <div className="section-card col-span-full">
+                <h3 className="section-header">Image Management</h3>
+                <p className="section-description">Upload images or provide URLs. Use ${`{image}`}, ${`{logo}`}, ${`{image1}`}, ${`{image2}`}, etc. in your template</p>
+                
+                <div className="grid md:grid-cols-2 gap-6">
+                  {/* Single File Upload (Backward Compatibility) */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Single Image Upload
+                    </label>
+                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageUpload}
+                        className="hidden"
+                        id="image-upload"
+                      />
+                      <label htmlFor="image-upload" className="cursor-pointer">
+                        <Upload className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                        <p className="text-sm text-gray-600">Click to upload single image</p>
+                        <p className="text-xs text-gray-500">PNG, JPG, GIF up to 5MB</p>
+                      </label>
+                    </div>
+                    {selectedImage && (
+                      <p className="text-sm text-green-600 mt-2">
+                        Selected: {selectedImage.name}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Multiple File Upload */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Multiple Images Upload
+                    </label>
+                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={handleMultipleImageUpload}
+                        className="hidden"
+                        id="multiple-image-upload"
+                      />
+                      <label htmlFor="multiple-image-upload" className="cursor-pointer">
+                        <Upload className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                        <p className="text-sm text-gray-600">Click to upload multiple images</p>
+                        <p className="text-xs text-gray-500">PNG, JPG, GIF up to 5MB each</p>
+                      </label>
+                    </div>
+                    {selectedImages.length > 0 && (
+                      <p className="text-sm text-green-600 mt-2">
+                        Selected: {selectedImages.length} image(s)
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Image URLs */}
+                <div className="mt-6">
+                  <div className="flex justify-between items-center mb-2">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Image URLs
+                    </label>
+                    <button
+                      onClick={addImageUrl}
+                      className="text-sm bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded"
+                    >
+                      Add URL
+                    </button>
+                  </div>
+                  {imageUrls.map((url, index) => (
+                    <div key={index} className="flex gap-2 mb-2">
+                      <input
+                        type="url"
+                        value={url}
+                        onChange={(e) => updateImageUrl(index, e.target.value)}
+                        placeholder={`https://example.com/image${index + 1}.jpg`}
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      {imageUrls.length > 1 && (
+                        <button
+                          onClick={() => removeImageUrl(index)}
+                          className="px-3 py-2 bg-red-500 hover:bg-red-600 text-white rounded-md"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Single Image URL (Backward Compatibility) */}
+                <div className="mt-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Single Image URL (Legacy)
+                  </label>
+                  <input
+                    type="url"
+                    value={imageUrl}
+                    onChange={(e) => setImageUrl(e.target.value)}
+                    placeholder="https://example.com/image.jpg"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  {imageUrl && (
+                    <p className="text-sm text-green-600 mt-2">
+                      URL provided: {imageUrl.substring(0, 50)}...
+                    </p>
+                  )}
+                </div>
+
+                {/* Image Previews */}
+                {(imagePreview || imageUrl || imagePreviews.length > 0 || imageUrls.some(url => url.trim())) && (
+                  <div className="mt-6">
+                    <h4 className="text-sm font-medium text-gray-700 mb-2">Image Previews</h4>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      {/* Single image preview */}
+                      {(imagePreview || imageUrl) && (
+                        <div className="border rounded-lg p-2 bg-gray-50">
+                          <img
+                            src={imagePreview || imageUrl}
+                            alt="Preview"
+                            className="w-full h-20 object-contain"
+                          />
+                          <p className="text-xs text-center mt-1">Main Image</p>
+                        </div>
+                      )}
+                      
+                      {/* Multiple image previews */}
+                      {imagePreviews.map((preview, index) => (
+                        <div key={index} className="border rounded-lg p-2 bg-gray-50">
+                          <img
+                            src={preview}
+                            alt={`Preview ${index + 1}`}
+                            className="w-full h-20 object-contain"
+                          />
+                          <p className="text-xs text-center mt-1">Image {index + 1}</p>
+                        </div>
+                      ))}
+                      
+                      {/* URL image previews */}
+                      {imageUrls.map((url, index) => url.trim() && (
+                        <div key={`url-${index}`} className="border rounded-lg p-2 bg-gray-50">
+                          <img
+                            src={url}
+                            alt={`URL Preview ${index + 1}`}
+                            className="w-full h-20 object-contain"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).style.display = 'none'
+                            }}
+                          />
+                          <p className="text-xs text-center mt-1">URL {index + 1}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Live Preview Section */}
+              <div className="section-card preview-section col-span-full">
+                <h3 className="section-header">Live Preview</h3>
+                <p className="section-description">See your PDF before generating</p>
+                <div className="preview-container">
+                  {previewHtml ? (
+                    <iframe
+                      srcDoc={previewHtml}
+                      className="preview-iframe"
+                      title="PDF Preview"
+                    />
+                  ) : (
+                    <div className="preview-placeholder">
+                      <FileText className="preview-icon" />
+                      <h4 style={{ fontSize: '1.125rem', fontWeight: '500', marginBottom: '0.5rem' }}>Ready to Preview</h4>
+                      <p>Click "Generate Preview" to see your PDF template</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Features */}
+            <div className="grid md:grid-cols-3 gap-8 mt-20">
+              <div className="bg-white rounded-2xl p-8 shadow-xl shadow-gray-100 text-center border border-gray-100 hover:shadow-2xl hover:shadow-blue-100 transition-all duration-300 transform hover:-translate-y-1">
+                <div className="bg-gradient-to-br from-blue-100 to-blue-200 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                  <Zap className="h-8 w-8 text-[#87C6F7]" />
+                </div>
+                <h3 className="text-xl font-bold mb-3 text-[#2A2E3A]">Lightning Fast</h3>
+                <p className="text-gray-600 leading-relaxed">Generate PDFs in seconds with our optimized engine. No waiting, no delays.</p>
+              </div>
+              <div className="bg-white rounded-2xl p-8 shadow-xl shadow-gray-100 text-center border border-gray-100 hover:shadow-2xl hover:shadow-green-100 transition-all duration-300 transform hover:-translate-y-1">
+                <div className="bg-gradient-to-br from-green-100 to-green-200 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                  <Shield className="h-8 w-8 text-green-600" />
+                </div>
+                <h3 className="text-xl font-bold mb-3 text-[#2A2E3A]">Secure & Private</h3>
+                <p className="text-gray-600 leading-relaxed">Client-side processing keeps your data private. Nothing leaves your browser.</p>
+              </div>
+              <div className="bg-white rounded-2xl p-8 shadow-xl shadow-gray-100 text-center border border-gray-100 hover:shadow-2xl hover:shadow-purple-100 transition-all duration-300 transform hover:-translate-y-1">
+                <div className="bg-gradient-to-br from-purple-100 to-purple-200 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                  <Palette className="h-8 w-8 text-purple-600" />
+                </div>
+                <h3 className="text-xl font-bold mb-3 text-[#2A2E3A]">Fully Customizable</h3>
+                <p className="text-gray-600 leading-relaxed">Complete control over design and layout. Make it yours.</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'templates' && (
+          <div className="space-y-12">
+            <div className="text-center max-w-3xl mx-auto">
+              <h2 className="text-4xl font-bold text-[#2A2E3A] mb-4">Template Library</h2>
+              <p className="text-xl text-gray-600">Professional templates to get you started quickly. No boring designs here.</p>
+            </div>
+            
+            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+              {templates.map((template, index) => (
+                <div key={index} className="bg-white rounded-2xl shadow-xl shadow-gray-100 p-6 hover:shadow-2xl hover:shadow-blue-100 transition-all duration-300 transform hover:-translate-y-2 border border-gray-100 group">
+                  <div className={`bg-gradient-to-br ${template.color} h-40 rounded-xl mb-6 relative overflow-hidden`}>
+                    <div className="absolute inset-0 bg-white/10 backdrop-blur-sm"></div>
+                    <div className="absolute bottom-4 left-4 right-4">
+                      <div className="bg-white/90 backdrop-blur-sm rounded-lg p-3">
+                        <div className="h-2 bg-gray-200 rounded mb-2"></div>
+                        <div className="h-2 bg-gray-200 rounded w-3/4"></div>
+                      </div>
+                    </div>
+                  </div>
+                  <h3 className="text-lg font-bold mb-2 text-[#2A2E3A] group-hover:text-[#87C6F7] transition-colors">{template.name}</h3>
+                  <p className="text-gray-600 text-sm mb-4 leading-relaxed">{template.description}</p>
+                  <div className="flex items-center justify-between">
+                    <span className="inline-block bg-blue-50 text-[#87C6F7] text-xs px-3 py-1 rounded-full font-medium">
+                      {template.category}
+                    </span>
+                    <ArrowRight className="h-4 w-4 text-gray-400 group-hover:text-[#87C6F7] transition-colors" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'api' && (
+          <div className="space-y-12">
+            <div className="text-center max-w-3xl mx-auto">
+              <h2 className="text-4xl font-bold text-[#2A2E3A] mb-4">API Documentation</h2>
+              <p className="text-xl text-gray-600">Integrate PDF generation into your applications. Developer-friendly and simple.</p>
+            </div>
+            
+            <div className="bg-white rounded-2xl shadow-xl shadow-gray-100 p-10 border border-gray-100">
+              <h3 className="text-2xl font-bold mb-6 text-[#2A2E3A]">Quick Start</h3>
+              <div className="bg-[#2A2E3A] rounded-xl p-8 overflow-x-auto">
+                <pre className="text-[#87C6F7] text-sm leading-relaxed">
+                  <code>{`// Generate PDF with MakeYourPDF API
+const formData = new FormData();
+formData.append('template', htmlTemplate);
+formData.append('data', JSON.stringify(jsonData));
+formData.append('image', imageFile); // Optional
+formData.append('imageUrl', imageUrl); // Optional
+
 const response = await fetch('/api/generate', {
   method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    template: {
-      html: '<h1>Invoice #{{invoice_number}}</h1>',
-      name: 'Invoice Template'
-    },
-    data: { invoice_number: 'INV-001' }
-  })
+  body: formData
 });
 
-const { pdf_url } = await response.json();`}</code>
-            </pre>
-          </div>
-        </div>
-
-        {/* Benefits */}
-        <div className="mt-24">
-          <h2 className="text-3xl font-bold text-center mb-12">Why Choose MakeYourPDF?</h2>
-          <div className="grid md:grid-cols-2 gap-8">
-            <div className="space-y-4">
-              <div className="flex items-start space-x-3">
-                <CheckCircle className="h-6 w-6 text-green-500 mt-1" />
-                <div>
-                  <h4 className="font-semibold">Template Management</h4>
-                  <p className="text-gray-600">Save and organize your PDF templates with version control</p>
-                </div>
+const blob = await response.blob();
+const url = URL.createObjectURL(blob);
+const a = document.createElement('a');
+a.href = url;
+a.download = 'document.pdf';
+a.click();`}</code>
+                </pre>
               </div>
-              <div className="flex items-start space-x-3">
-                <CheckCircle className="h-6 w-6 text-green-500 mt-1" />
-                <div>
-                  <h4 className="font-semibold">User Accounts</h4>
-                  <p className="text-gray-600">Secure user registration and authentication system</p>
-                </div>
-              </div>
-              <div className="flex items-start space-x-3">
-                <CheckCircle className="h-6 w-6 text-green-500 mt-1" />
-                <div>
-                  <h4 className="font-semibold">RESTful API</h4>
-                  <p className="text-gray-600">Clean, documented API for easy integration</p>
-                </div>
-              </div>
-            </div>
-            <div className="space-y-4">
-              <div className="flex items-start space-x-3">
-                <CheckCircle className="h-6 w-6 text-green-500 mt-1" />
-                <div>
-                  <h4 className="font-semibold">Multiple Formats</h4>
-                  <p className="text-gray-600">Support for various page sizes and orientations</p>
-                </div>
-              </div>
-              <div className="flex items-start space-x-3">
-                <CheckCircle className="h-6 w-6 text-green-500 mt-1" />
-                <div>
-                  <h4 className="font-semibold">Template Engine</h4>
-                  <p className="text-gray-600">Powerful Handlebars/Mustache template processing</p>
-                </div>
-              </div>
-              <div className="flex items-start space-x-3">
-                <CheckCircle className="h-6 w-6 text-green-500 mt-1" />
-                <div>
-                  <h4 className="font-semibold">Scalable Infrastructure</h4>
-                  <p className="text-gray-600">Built on Vercel with auto-scaling capabilities</p>
-                </div>
+              <div className="mt-8 p-6 bg-blue-50 rounded-xl border border-blue-100">
+                <h4 className="font-bold text-[#2A2E3A] mb-2">💡 Pro Tip</h4>
+                <p className="text-gray-700">Use template variables like <code className="bg-white px-2 py-1 rounded text-[#87C6F7] font-mono text-sm">$&#123;logo&#125;</code> for images and <code className="bg-white px-2 py-1 rounded text-[#87C6F7] font-mono text-sm">$&#123;company.name&#125;</code> for dynamic content. Support for nested objects and arrays included!</p>
               </div>
             </div>
           </div>
-        </div>
-
-        {/* CTA Section */}
-        <div className="mt-24 bg-blue-600 rounded-xl p-12 text-center text-white">
-          <h2 className="text-3xl font-bold mb-4">Ready to Start Generating PDFs?</h2>
-          <p className="text-xl mb-8 opacity-90">Join thousands of developers using MakeYourPDF for their document needs</p>
-          <Link 
-            href="/auth/register" 
-            className="bg-white text-blue-600 px-8 py-4 rounded-lg text-lg font-semibold hover:bg-gray-100 transition-colors inline-flex items-center"
-          >
-            Get Started Free
-            <ArrowRight className="ml-2 h-5 w-5" />
-          </Link>
-        </div>
+        )}
       </main>
-
-      {/* Footer */}
-      <footer className="bg-gray-900 text-white py-12 mt-24">
-        <div className="container mx-auto px-4">
-          <div className="grid md:grid-cols-4 gap-8">
-            <div>
-              <div className="flex items-center space-x-2 mb-4">
-                <FileText className="h-6 w-6" />
-                <span className="text-xl font-bold">MakeYourPDF</span>
-              </div>
-              <p className="text-gray-400">Professional PDF generation made simple</p>
-            </div>
-            <div>
-              <h4 className="font-semibold mb-4">Product</h4>
-              <ul className="space-y-2 text-gray-400">
-                <li><Link href="/features">Features</Link></li>
-                <li><Link href="/templates">Templates</Link></li>
-                <li><Link href="/pricing">Pricing</Link></li>
-                <li><Link href="/demo">Demo</Link></li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="font-semibold mb-4">Developers</h4>
-              <ul className="space-y-2 text-gray-400">
-                <li><Link href="/docs">API Documentation</Link></li>
-                <li><Link href="/guides">Guides</Link></li>
-                <li><Link href="/examples">Examples</Link></li>
-                <li><Link href="/support">Support</Link></li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="font-semibold mb-4">Company</h4>
-              <ul className="space-y-2 text-gray-400">
-                <li><Link href="/about">About</Link></li>
-                <li><Link href="/blog">Blog</Link></li>
-                <li><Link href="/contact">Contact</Link></li>
-                <li><Link href="/privacy">Privacy</Link></li>
-              </ul>
-            </div>
+      {/* Single Footer with benefit cards */}
+      <footer className="grid md:grid-cols-3 gap-6 p-8 bg-white border-t mt-8">
+        <div className="flex flex-col items-center text-center">
+          <div className="bg-blue-100 text-blue-500 rounded-full w-14 h-14 flex items-center justify-center mb-4">
+            <Zap className="h-7 w-7" />
           </div>
-          <div className="border-t border-gray-800 mt-8 pt-8 text-center text-gray-400">
-            <p>&copy; 2025 MakeYourPDF. All rights reserved.</p>
+          <div className="font-bold mb-1">Lightning Fast</div>
+          <div className="text-gray-500 text-sm">Generate PDFs in seconds with our optimized engine.</div>
+        </div>
+        <div className="flex flex-col items-center text-center">
+          <div className="bg-green-100 text-green-600 rounded-full w-14 h-14 flex items-center justify-center mb-4">
+            <Shield className="h-7 w-7" />
           </div>
+          <div className="font-bold mb-1">Secure & Private</div>
+          <div className="text-gray-500 text-sm">Client-side processing keeps your data private.</div>
+        </div>
+        <div className="flex flex-col items-center text-center">
+          <div className="bg-purple-100 text-purple-600 rounded-full w-14 h-14 flex items-center justify-center mb-4">
+            <Palette className="h-7 w-7" />
+          </div>
+          <div className="font-bold mb-1">Fully Customizable</div>
+          <div className="text-gray-500 text-sm">Complete control over design and layout.</div>
         </div>
       </footer>
     </div>
